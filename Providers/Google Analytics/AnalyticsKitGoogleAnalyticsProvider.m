@@ -44,6 +44,7 @@ static NSString* const kProperties = @"properties";
 {
     self = [super init];
     if (self) {
+		_timingQueue = dispatch_queue_create("analyticsKit.goolgeAnalytics.provider", DISPATCH_QUEUE_SERIAL);
         [[GAI sharedInstance] trackerWithTrackingId:trackingID];
     }
     return self;
@@ -220,14 +221,6 @@ static NSString* const kProperties = @"properties";
 }
 
 #pragma mark - Accessors
-
-- (dispatch_queue_t)timingQueue
-{
-	if (!_timingQueue) {
-		_timingQueue = dispatch_queue_create("analyticsKit.goolgeAnalytics.provider", DISPATCH_QUEUE_SERIAL);
-	}
-	return _timingQueue;
-}
 
 - (NSMutableDictionary *)timedEvents
 {
