@@ -34,8 +34,8 @@ static NSString* const kProperties = @"properties";
 #if !__has_feature(objc_arc)
 -(void)dealloc
 {
-    dispatch_release(self.timingQueue);
-    [timedEvents release];
+    dispatch_release(_timingQueue);
+    [_timedEvents release];
     [super dealloc];
 }
 #endif
