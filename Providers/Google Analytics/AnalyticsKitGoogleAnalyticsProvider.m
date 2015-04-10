@@ -10,9 +10,6 @@
 #import "GAIFields.h"
 #import "AnalyticsKitGoogleAnalyticsProvider.h"
 
-static NSMutableDictionary *timedEvents;
-static dispatch_queue_t timingQueue;
-
 // Constants used to parsed dictionnary to match Google Analytics tracker properties
 static NSString* const kCategory = @"Category";
 static NSString* const kLabel = @"Label";
@@ -25,6 +22,8 @@ static NSString* const kProperties = @"properties";
 
 
 @interface AnalyticsKitGoogleAnalyticsProvider ()
+@property (nonatomic, strong) dispatch_queue_t timingQueue;
+@property (nonatomic, strong) NSMutableDictionary *timedEvents;
 
 -(id)valueFromDictionnary:(NSDictionary*)dictionnary forKey:(NSString*)key;
 @end
@@ -35,7 +34,7 @@ static NSString* const kProperties = @"properties";
 #if !__has_feature(objc_arc)
 -(void)dealloc
 {
-    dispatch_release(timingQueue);
+    dispatch_release(self.timingQueue);
     [timedEvents release];
     [super dealloc];
 }
@@ -46,8 +45,6 @@ static NSString* const kProperties = @"properties";
     self = [super init];
     if (self) {
         [[GAI sharedInstance] trackerWithTrackingId:trackingID];
-        timedEvents = [[NSMutableDictionary alloc] init];
-        timingQueue = dispatch_queue_create("analyticsKit.goolgeAnalytics.provider", DISPATCH_QUEUE_SERIAL);
     }
     return self;
 }
@@ -117,8 +114,8 @@ static NSString* const kProperties = @"properties";
     if (!timed) {
         [self logEvent:event];
     } else {
-        dispatch_sync(timingQueue, ^{
-                          timedEvents[event] = [NSDate date];
+        dispatch_sync(self.timingQueue, ^{
+                          self.timedEvents[event] = [NSDate date];
                       });
     }    
 }
@@ -129,12 +126,12 @@ static NSString* const kProperties = @"properties";
         [self logEvent:event withProperties:dict];
     } else {
         __block NSDictionary* properties = dict;
-        dispatch_sync(timingQueue, ^{
+        dispatch_sync(self.timingQueue, ^{
             if (properties == nil) {
                 properties = @{};
             }
-            timedEvents[event] = @{kTime : [NSDate date],
-                                   kProperties: properties};
+			self.timedEvents[event] = @{kTime: [NSDate date],
+										kProperties: properties};
         });
     }
     
@@ -144,7 +141,7 @@ static NSString* const kProperties = @"properties";
 {
     NSMutableDictionary* properties =  [[NSMutableDictionary alloc] initWithDictionary:dict];
     NSDate* startDate;
-    id timeEvent = timedEvents[event];
+    id timeEvent = self.timedEvents[event];
 
     // merging properties from started event with given properties if necessary
     if ([timeEvent isKindOfClass:[NSDictionary class]]) {
@@ -158,12 +155,12 @@ static NSString* const kProperties = @"properties";
     NSString* label = [self valueFromDictionnary:properties forKey:kLabel];
 
     __block NSTimeInterval time;
-    dispatch_sync(timingQueue, ^{
+    dispatch_sync(self.timingQueue, ^{
         // calculating the elapsed time
         NSDate* endDate = [NSDate date];
         time = endDate.timeIntervalSince1970 - startDate.timeIntervalSince1970;
         // removed time which will be logged
-        [timedEvents removeObjectForKey:event];
+        [self.timedEvents removeObjectForKey:event];
     });
 
     id tracker = [[GAI sharedInstance] defaultTracker];
@@ -221,4 +218,23 @@ static NSString* const kProperties = @"properties";
     }
     return nil;
 }
+
+#pragma mark - Accessors
+
+- (dispatch_queue_t)timingQueue
+{
+	if (!_timingQueue) {
+		_timingQueue = dispatch_queue_create("analyticsKit.goolgeAnalytics.provider", DISPATCH_QUEUE_SERIAL);
+	}
+	return _timingQueue;
+}
+
+- (NSMutableDictionary *)timedEvents
+{
+	if (!_timedEvents) {
+		_timedEvents = [[NSMutableDictionary alloc] init];
+	}
+	return _timedEvents;
+}
+
 @end
